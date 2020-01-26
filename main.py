@@ -11,17 +11,18 @@ import numpy as np
 
 
 # Constants
-MODEL_PATH  = "models/0"
-START_EPOCH = 1
-END_EPOCH   = 200
-DECAY_START = 50
+MODEL_PATH      = "models/0"
+START_EPOCH     = 1
+END_EPOCH       = 200
+DECAY_START     = 100
 
-BATCH_SIZE  = 1
-POOL_SIZE   = 50
-ADAM_BETA_1 = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
-G_LR        = 0.0002                    # Generator learning rate.
-D_LR        = 0.00005                   # Discriminator learning rate.
-ON_CUDA     = torch.cuda.is_available() # Boolean for CUDA availability.
+BATCH_SIZE      = 1
+POOL_SIZE       = 50
+LOSS_G_LAMBDA   = 10
+ADAM_BETA_1     = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
+G_LR            = 0.0002                    # Generator learning rate.
+D_LR            = 0.00005                   # Discriminator learning rate.
+ON_CUDA         = torch.cuda.is_available() # Boolean for CUDA availability.
 
 if ON_CUDA:
     device = "cuda:0"
@@ -109,9 +110,9 @@ optimizer_G = torch.optim.Adam(itertools.chain(gen_A.parameters(), gen_B.paramet
 optimizer_D_A = torch.optim.Adam(disc_A.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_B = torch.optim.Adam(disc_B.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 
-lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH, DECAY_START).step)
-lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH, DECAY_START).step)
-lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH, DECAY_START).step)
+lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 
 # Training loop
 pool_A = []
@@ -131,5 +132,80 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         fake_B = update_pool(pool_B, fake_B, device = device)
 
         # Generate labels.
-        real_label = torch.Tensor([1])
-        fake_label = torch.Tensor([0])
+        real_label = torch.Tensor([1]).view(-1)
+        fake_label = torch.Tensor([0]).view(-1)
+
+        #########################
+        # Train Discriminators. #
+        #########################
+
+        # Real batch
+        output_DA = disc_A(real_A)
+        output_DB = disc_B(real_B)
+        DA_A = output_DA.item()
+        DB_B = output_DB.item()
+
+        real_loss_DA = criterion_GAN(output_DA, real_label)
+        real_loss_DB = criterion_GAN(output_DB, real_label)
+
+        real_loss_DA.backward()
+        real_loss_DB.backward()
+
+        # Fake batch
+        output_DA = disc_A(fake_A.detach())
+        output_DB = disc_B(fake_B.detach())
+        DA_GA_B = output_DA.item()
+        DB_GB_A = output_DB.item()
+
+        fake_loss_DA = criterion_GAN(output_DA, fake_label)
+        fake_loss_DB = criterion_GAN(output_DB, fake_label)
+
+        loss_DA = (real_loss_DA + fake_loss_DA) / 2
+        loss_DB = (real_loss_DB + fake_loss_DB) / 2
+
+        fake_loss_DA.backward()
+        fake_loss_DB.backward()
+
+        optimizer_D_A.step()
+        optimizer_D_B.step()
+
+        ###################
+        # Train Generator #
+        ###################
+        output_DA = disc_A(fake_A)
+        output_DB = disc_B(fake_B)
+
+        # Adversarial loss
+        loss_G_adv = torch.mean(criterion_GAN(output_DA, real_label) + criterion_GAN(output_DB, real_label))
+
+        # Cyclic loss
+        cyc_A = gen_A(fake_B)
+        cyc_B = gen_B(fake_A)
+
+        loss_G_cyc = torch.mean(criterion_cycle(cyc_A, real_A) + criterion_cycle(cyc_B, real_B))
+
+        # Total Generator loss
+        loss_G = loss_G_adv + LOSS_G_LAMBDA*loss_G_cyc
+
+        loss_G.backward()
+        optimizer_G.step()
+
+        # TODO: Add identity mapping loss.
+
+    # Output training stats.
+    print("#######################################")
+    print("Epoch", epoch)
+    print("---------------------------------------")
+    print("Discriminator_A Loss:", loss_DA.item())
+    print("Discriminator_B Loss:", loss_DB.item())
+    print("Generator Loss:", loss_G.item())
+    print()
+    print("D_A(A) =", DA_A)
+    print("D_A(G_A(B)) =", DA_GA_B)
+    print()
+    print("D_B(B) =", DB_B)
+    print("D_B(G_B(A)) =", DB_GB_A)
+    print("#######################################")
+    print()
+
+    # TODO: Save a sample for visual reference.
