@@ -17,15 +17,16 @@ END_EPOCH       = 200
 DECAY_START     = 100
 
 BATCH_SIZE      = 1
-POOL_SIZE       = 50
 ADAM_BETA_1     = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
 G_LR            = 0.0002                    # Generator learning rate.
 D_LR            = 0.0002                    # Discriminator learning rate.
 ON_CUDA         = torch.cuda.is_available() # Boolean for CUDA availability.
 
 if ON_CUDA:
+    print("GPU available. Training with CUDA.")
     device = "cuda:0"
 else:
+    print("GPU not available. Training with CPU.")
     device = "cpu"
 
 if MODEL_PATH[-1] != "/":

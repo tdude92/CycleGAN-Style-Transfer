@@ -1,5 +1,8 @@
 import torch
 
+# Constants
+POOL_SIZE = 50
+
 # Learning rate decay for Adam optimizers.
 class LambdaLR():
     def __init__(self, n_epochs, offset, decay_start_epoch):
