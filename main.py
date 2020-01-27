@@ -89,13 +89,11 @@ criterion_cycle = nn.L1Loss()
 criterion_identity = nn.L1Loss()
 
 # Optimizers and LR schedulers.
-optimizer_G_A = torch.optim.Adam(gen_A.parameters(), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
-optimizer_G_B = torch.optim.Adam(gen_B.parameters(), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
+optimizer_G = torch.optim.Adam(itertools.chain(gen_A.parameters(), gen_B.parameters()), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_A = torch.optim.Adam(disc_A.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_B = torch.optim.Adam(disc_B.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 
-lr_scheduler_G_A = torch.optim.lr_scheduler.LambdaLR(optimizer_G_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
-lr_scheduler_G_B = torch.optim.lr_scheduler.LambdaLR(optimizer_G_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 
@@ -123,8 +121,8 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         fake_B = update_pool(pool_B, fake_B, device = device)
 
         # Generate labels.
-        real_label = torch.Tensor([1]).view(-1)
-        fake_label = torch.Tensor([0]).view(-1)
+        real_label = torch.Tensor([1])
+        fake_label = torch.Tensor([0])
 
         # Move tensors to GPU if available.
         if ON_CUDA:
@@ -165,10 +163,10 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         loss_GA = loss_GA_adv + 10*loss_GA_cyc + 5*loss_GA_id
         loss_GB = loss_GB_adv + 10*loss_GB_cyc + 5*loss_GB_id
 
-        loss_GA.backward()
-        loss_GB.backward()
-        optimizer_G_A.step()
-        optimizer_G_B.step()
+        loss_G = loss_GA + loss_GB
+
+        loss_G.backward()
+        optimizer_G.step()
 
         ########################
         # Train Discriminators #
@@ -207,10 +205,9 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         optimizer_D_B.step()
 
     # Step learning rate schedulers.
+    lr_scheduler_G.step()
     lr_scheduler_D_A.step()
     lr_scheduler_D_B.step()
-    lr_scheduler_G_A.step()
-    lr_scheduler_G_B.step()
 
     # Output training stats.
     print("#######################################")
