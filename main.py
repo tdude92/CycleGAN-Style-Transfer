@@ -9,7 +9,6 @@ import cv2
 import itertools
 import numpy as np
 
-
 # Constants
 MODEL_PATH      = "models/0"
 START_EPOCH     = 1
@@ -28,25 +27,6 @@ if ON_CUDA:
     device = "cuda:0"
 else:
     device = "cpu"
-
-# Function used to update pools.
-def update_pool(pool, images, max_size = POOL_SIZE, device = "cpu"):
-    selected = []
-    for image in images:
-        if len(pool) < max_size:
-            # Add to the pool
-            pool.append(image)
-            selected.append(image)
-        elif torch.randn(1).item() < 0.5:
-            # Use image but don't add to pool.
-            selected.append(image)
-        else:
-            # Replace an image in the pool with the new image.
-            idx = torch.randint(len(pool), (1, 1)).item()
-            selected.append(pool[idx])
-            pool[idx] = image
-    output = torch.stack(selected).to(device)
-    return output
 
 
 # Define transformations applied to input images.
@@ -106,11 +86,13 @@ criterion_cycle = nn.L1Loss()
 criterion_identity = nn.L1Loss()
 
 # Optimizers and LR schedulers.
-optimizer_G = torch.optim.Adam(itertools.chain(gen_A.parameters(), gen_B.parameters()), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
+optimizer_G_A = torch.optim.Adam(gen_A.parameters(), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
+optimizer_G_B = torch.optim.Adam(gen_B.parameters(), lr = G_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_A = torch.optim.Adam(disc_A.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_B = torch.optim.Adam(disc_B.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 
-lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_G_A = torch.optim.lr_scheduler.LambdaLR(optimizer_G_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_G_B = torch.optim.lr_scheduler.LambdaLR(optimizer_G_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
 
@@ -118,12 +100,18 @@ lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = 
 pool_A = []
 pool_B = []
 for epoch in range(START_EPOCH, END_EPOCH + 1):
-    for real_A,  real_B in zip(loader_A, loader_B):
+    for real_A, real_B in zip(loader_A, loader_B):
         # Each element of zip(loader_A, loader_B) is in the form:
         # ((image_A, label_A), (image_B, label_B))
         # label_A, label_B are useless, so we discard them.
         real_A = real_A[0]
         real_B = real_B[0]
+
+        # Move tensors to GPU if available.
+        if ON_CUDA:
+            real_A = real_A.cuda()
+            real_B = real_B.cuda()
+
         fake_A = gen_A.forward(real_B)
         fake_B = gen_B.forward(real_A)
 
@@ -135,9 +123,55 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         real_label = torch.Tensor([1]).view(-1)
         fake_label = torch.Tensor([0]).view(-1)
 
-        #########################
-        # Train Discriminators. #
-        #########################
+        # Move tensors to GPU if available.
+        if ON_CUDA:
+            real_label = real_label.cuda()
+            fake_label = fake_label.cuda()
+
+        ####################
+        # Train Generators #
+        ####################
+        gen_A.zero_grad()
+        gen_B.zero_grad()
+
+        output_DA = disc_A(fake_A)
+        output_DB = disc_B(fake_B)
+
+        DA_GA_B = output_DA.item()
+        DA_GB_A = output_DB.item()
+
+        # Adversarial loss
+        loss_GA_adv = torch.mean(criterion_GAN(output_DA, real_label))
+        loss_GB_adv = torch.mean(criterion_GAN(output_DB, real_label))
+
+        # Cyclic consistency loss
+        cyc_A = gen_A(fake_B)
+        cyc_B = gen_B(fake_A)
+
+        loss_GA_cyc = torch.mean(criterion_cycle(cyc_A, real_A))
+        loss_GB_cyc = torch.mean(criterion_cycle(cyc_B, real_B))
+
+        # Identity mapping loss.
+        id_A = gen_A(real_A)
+        id_B = gen_B(real_B)
+
+        loss_GA_id = criterion_identity(id_A, real_A)
+        loss_GB_id = criterion_identity(id_B, real_B)
+
+        # Total Generator losses
+        loss_GA = loss_GA_adv + 10*loss_GA_cyc + 5*loss_GA_id
+        loss_GB = loss_GB_adv + 10*loss_GB_cyc + 5*loss_GB_id
+
+        loss_GA.backward()
+        loss_GB.backward()
+        optimizer_G_A.step()
+        optimizer_G_B.step()
+
+        ########################
+        # Train Discriminators #
+        ########################
+        disc_A.zero_grad()
+        disc_B.zero_grad()
 
         # Real batch
         output_DA = disc_A(real_A)
@@ -160,37 +194,20 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         fake_loss_DA = criterion_GAN(output_DA, fake_label)
         fake_loss_DB = criterion_GAN(output_DB, fake_label)
 
-        loss_DA = (real_loss_DA + fake_loss_DA) / 2
-        loss_DB = (real_loss_DB + fake_loss_DB) / 2
-
         fake_loss_DA.backward()
         fake_loss_DB.backward()
+
+        loss_DA = (real_loss_DA + fake_loss_DA) / 2
+        loss_DB = (real_loss_DB + fake_loss_DB) / 2
 
         optimizer_D_A.step()
         optimizer_D_B.step()
 
-        ###################
-        # Train Generator #
-        ###################
-        output_DA = disc_A(fake_A)
-        output_DB = disc_B(fake_B)
-
-        # Adversarial loss
-        loss_G_adv = torch.mean(criterion_GAN(output_DA, real_label) + criterion_GAN(output_DB, real_label))
-
-        # Cyclic loss
-        cyc_A = gen_A(fake_B)
-        cyc_B = gen_B(fake_A)
-
-        loss_G_cyc = torch.mean(criterion_cycle(cyc_A, real_A) + criterion_cycle(cyc_B, real_B))
-
-        # Total Generator loss
-        loss_G = loss_G_adv + LOSS_G_LAMBDA*loss_G_cyc
-
-        loss_G.backward()
-        optimizer_G.step()
-
-        # TODO: Add identity mapping loss.
+    # Step learning rate schedulers.
+    lr_scheduler_D_A.step()
+    lr_scheduler_D_B.step()
+    lr_scheduler_G_A.step()
+    lr_scheduler_G_B.step()
 
     # Output training stats.
     print("#######################################")
@@ -198,7 +215,8 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
     print("---------------------------------------")
     print("Discriminator_A Loss:", loss_DA.item())
     print("Discriminator_B Loss:", loss_DB.item())
-    print("Generator Loss:", loss_G.item())
+    print("Generator_B2A Loss:", loss_GA.item())
+    print("Generator_A2B Loss:", loss_GB.item())
     print()
     print("D_A(A) =", DA_A)
     print("D_A(G_A(B)) =", DA_GA_B)
@@ -208,4 +226,18 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
     print("#######################################")
     print()
 
-    # TODO: Save a sample for visual reference.
+    # Save a sample for visual reference.
+    os.makedirs("out/Epoch" + str(epoch), exist_ok = True)
+    real_A = cv2.cvtColor(real_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    real_B = cv2.cvtColor(real_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    fake_A = cv2.cvtColor(fake_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    fake_B = cv2.cvtColor(fake_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    cyc_A  = cv2.cvtColor(cyc_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    cyc_B  = cv2.cvtColor(cyc_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_real.jpg", real_A)
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_fake.jpg", fake_A)
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_cyclic.jpg", cyc_A)
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_real.jpg", real_B)
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_fake.jpg", fake_B)
+    cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_cyclic.jpg", cyc_B)
