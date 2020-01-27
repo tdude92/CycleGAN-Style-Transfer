@@ -128,4 +128,7 @@ class Discriminator(nn.Module):
     
     def forward(self, x):
         # Return the average probability.
-        return self.pipeline(x).mean()
+        x = self.pipeline(x)
+        for i in range(len(x)):
+            x[i] = torch.mean(x[i])
+        return x
