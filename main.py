@@ -10,6 +10,7 @@ import itertools
 import numpy as np
 
 # Constants
+DATA_PATH       = "data/monet2photo"
 MODEL_PATH      = "models/0"
 START_EPOCH     = 1
 END_EPOCH       = 200
@@ -17,10 +18,9 @@ DECAY_START     = 100
 
 BATCH_SIZE      = 1
 POOL_SIZE       = 50
-LOSS_G_LAMBDA   = 10
 ADAM_BETA_1     = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
 G_LR            = 0.0002                    # Generator learning rate.
-D_LR            = 0.00005                   # Discriminator learning rate.
+D_LR            = 0.0002                    # Discriminator learning rate.
 ON_CUDA         = torch.cuda.is_available() # Boolean for CUDA availability.
 
 if ON_CUDA:
@@ -28,6 +28,10 @@ if ON_CUDA:
 else:
     device = "cpu"
 
+if MODEL_PATH[-1] != "/":
+    MODEL_PATH += "/"
+if DATA_PATH[-1] != "/":
+    DATA_PATH += "/"
 
 # Define transformations applied to input images.
 transform = transforms.Compose([
@@ -38,8 +42,8 @@ transform = transforms.Compose([
 ])
 
 # Load dataset
-data_A = datasets.ImageFolder("data/monet2photo/A", transform = transform)
-data_B = datasets.ImageFolder("data/monet2photo/B", transform = transform)
+data_A = datasets.ImageFolder(DATA_PATH + "A", transform = transform)
+data_B = datasets.ImageFolder(DATA_PATH + "B", transform = transform)
 loader_A = torch.utils.data.DataLoader(data_A, batch_size = BATCH_SIZE, shuffle = True, drop_last = True)
 loader_B = torch.utils.data.DataLoader(data_B, batch_size = BATCH_SIZE, shuffle = True, drop_last = True)
 
@@ -50,8 +54,6 @@ disc_A = Discriminator("discriminator_A")
 disc_B = Discriminator("discriminator_B")
 
 # Load models if available.
-if MODEL_PATH[-1] != "/":
-    MODEL_PATH += "/"
 try:
     # Attempt to load models.
     gen_A.load_state_dict(torch.load(MODEL_PATH + "gen_A.pth"))
@@ -228,12 +230,12 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
 
     # Save a sample for visual reference.
     os.makedirs("out/Epoch" + str(epoch), exist_ok = True)
-    real_A = cv2.cvtColor(real_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
-    real_B = cv2.cvtColor(real_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
-    fake_A = cv2.cvtColor(fake_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
-    fake_B = cv2.cvtColor(fake_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
-    cyc_A  = cv2.cvtColor(cyc_A.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
-    cyc_B  = cv2.cvtColor(cyc_B.cpu().detach().numpy().transpose(1, 2, 0) * 255, cv2.COLOR_RGB2BGR)
+    real_A = cv2.cvtColor((real_A.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
+    real_B = cv2.cvtColor((real_B.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
+    fake_A = cv2.cvtColor((fake_A.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
+    fake_B = cv2.cvtColor((fake_B.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
+    cyc_A  = cv2.cvtColor((cyc_A.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
+    cyc_B  = cv2.cvtColor((cyc_B.cpu().detach().numpy().transpose(1, 2, 0) + 1) * 127.5, cv2.COLOR_RGB2BGR)
 
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_real.jpg", real_A)
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_fake.jpg", fake_A)
