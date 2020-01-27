@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 from models import Generator, Discriminator
-from utilities import weight_init, LambdaLR
+from utilities import LambdaLR, weight_init, update_pool
 
 import os
 import cv2
