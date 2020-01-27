@@ -203,7 +203,6 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
 
         optimizer_D_A.step()
         optimizer_D_B.step()
-        break
 
     # Step learning rate schedulers.
     lr_scheduler_G.step()
@@ -243,4 +242,3 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_real.jpg", real_B)
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_fake.jpg", fake_B)
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "B_cyclic.jpg", cyc_B)
-    break
