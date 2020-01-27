@@ -230,12 +230,12 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
     # Save a sample for visual reference.
     os.makedirs("out/Epoch" + str(epoch), exist_ok = True)
 
-    real_A = cv2.cvtColor((real_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
-    real_B = cv2.cvtColor((real_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
-    fake_A = cv2.cvtColor((fake_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
-    fake_B = cv2.cvtColor((fake_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
-    cyc_A  = cv2.cvtColor((cyc_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
-    cyc_B  = cv2.cvtColor((cyc_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5, cv2.COLOR_RGB2BGR)
+    real_A = cv2.cvtColor(((real_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
+    real_B = cv2.cvtColor(((real_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
+    fake_A = cv2.cvtColor(((fake_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
+    fake_B = cv2.cvtColor(((fake_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
+    cyc_A  = cv2.cvtColor(((cyc_A.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
+    cyc_B  = cv2.cvtColor(((cyc_B.cpu().detach().numpy().squeeze().transpose(1, 2, 0) + np.ones((256, 256, 3))) * 127.5).astype(np.float32), cv2.COLOR_RGB2BGR)
 
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_real.jpg", real_A)
     cv2.imwrite("out/Epoch" + str(epoch) + "/" + "A_fake.jpg", fake_A)
