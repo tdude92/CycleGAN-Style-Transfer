@@ -12,7 +12,7 @@ import numpy as np
 # Constants
 DATA_PATH       = "data/monet2photo"
 MODEL_PATH      = "models/0"
-START_EPOCH     = 1
+START_EPOCH     = 21
 END_EPOCH       = 200
 DECAY_START     = 100
 
