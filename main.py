@@ -19,7 +19,7 @@ DECAY_START     = 100
 BATCH_SIZE      = 1
 ADAM_BETA_1     = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
 G_LR            = 0.0002                    # Generator learning rate.
-D_LR            = 0.0002                    # Discriminator learning rate.
+D_LR            = 0.00005                   # Discriminator learning rate.
 ON_CUDA         = torch.cuda.is_available() # Boolean for CUDA availability.
 
 if ON_CUDA:
@@ -61,7 +61,10 @@ try:
     gen_B.load_state_dict(torch.load(MODEL_PATH + "gen_B.pth"))
     disc_A.load_state_dict(torch.load(MODEL_PATH + "disc_A.pth"))
     disc_B.load_state_dict(torch.load(MODEL_PATH + "disc_B.pth"))
+    print("Loaded models from " + MODEL_PATH)
 except FileNotFoundError:
+    print("Saving models to " + MODEL_PATH)
+
     # Create folder to store models.
     os.makedirs(MODEL_PATH)
 

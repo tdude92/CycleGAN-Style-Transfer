@@ -122,7 +122,8 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace = True),
             # Dimensions: (32, 32, NDF * 8)
 
-            nn.Conv2d(NDF * 8, 1, kernel_size = 3, stride = 1, padding = 1)
+            nn.Conv2d(NDF * 8, 1, kernel_size = 3, stride = 1, padding = 1),
+            nn.Sigmoid()
             # Dimensions: (32, 32, 1)
         )
     
