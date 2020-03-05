@@ -11,15 +11,16 @@ import numpy as np
 
 # Constants
 DATA_PATH       = "data/monet2photo"
-MODEL_PATH      = "models/0"
+MODEL_PATH      = "models/t_conv"
 START_EPOCH     = 1
 END_EPOCH       = 200
-DECAY_START     = 100
+DECAY_START_G   = 100
+DECAY_START_D   = 100
 
 BATCH_SIZE      = 1
 ADAM_BETA_1     = 0.5                       # Adam optimizer beta1 (beta2 is always 0.999).
 G_LR            = 0.0002                    # Generator learning rate.
-D_LR            = 0.00003                   # Discriminator learning rate.
+D_LR            = 0.00002                   # Discriminator learning rate.
 ON_CUDA         = torch.cuda.is_available() # Boolean for CUDA availability.
 
 if ON_CUDA:
@@ -96,14 +97,15 @@ optimizer_G = torch.optim.Adam(itertools.chain(gen_A.parameters(), gen_B.paramet
 optimizer_D_A = torch.optim.Adam(disc_A.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 optimizer_D_B = torch.optim.Adam(disc_B.parameters(), lr = D_LR, betas = (ADAM_BETA_1, 0.999))
 
-lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
-lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
-lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START).step)
+lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START_G).step)
+lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START_D).step)
+lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda = LambdaLR(END_EPOCH, START_EPOCH - 1, DECAY_START_D).step)
 
 # Training loop
 pool_A = []
 pool_B = []
 for epoch in range(START_EPOCH, END_EPOCH + 1):
+    step = 0
     for real_A, real_B in zip(loader_A, loader_B):
         # Each element of zip(loader_A, loader_B) is in the form:
         # ((image_A, label_A), (image_B, label_B))
@@ -120,8 +122,8 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         fake_B = gen_B.forward(real_A)
 
         # Update pools.
-        fake_A = update_pool(pool_A, fake_A, device = device)
-        fake_B = update_pool(pool_B, fake_B, device = device)
+        # fake_A = update_pool(pool_A, fake_A, device = device)
+        # fake_B = update_pool(pool_B, fake_B, device = device)
 
         # Generate labels.
         real_label = torch.Tensor([1])
@@ -207,13 +209,16 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
         optimizer_D_A.step()
         optimizer_D_B.step()
 
+        step += 1
+        print("\rEpoch", epoch, "   Step", step, end = "")
+
     # Step learning rate schedulers.
     lr_scheduler_G.step()
     lr_scheduler_D_A.step()
     lr_scheduler_D_B.step()
 
     # Output training stats.
-    print("#######################################")
+    print("\n#######################################")
     print("Epoch", epoch)
     print("---------------------------------------")
     print("Discriminator_A Loss:", loss_DA.item())
@@ -228,6 +233,12 @@ for epoch in range(START_EPOCH, END_EPOCH + 1):
     print("D_B(G_B(A)) =", DB_GB_A)
     print("#######################################")
     print()
+
+    # Save Models
+    torch.save(gen_A.state_dict(), MODEL_PATH + "gen_A.pth")
+    torch.save(gen_B.state_dict(), MODEL_PATH + "gen_B.pth")
+    torch.save(disc_A.state_dict(), MODEL_PATH + "disc_A.pth")
+    torch.save(disc_B.state_dict(), MODEL_PATH + "disc_B.pth")
 
     # Save a sample for visual reference.
     os.makedirs("out/Epoch" + str(epoch), exist_ok = True)
