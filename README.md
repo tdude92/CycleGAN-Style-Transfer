@@ -1,5 +1,6 @@
 # CycleGAN-Style-Transfer
 Implementing style transfer with CycleGAN.
+Datasets Used: https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/
 
 Epoch 195 (Real to Monet):
 \
