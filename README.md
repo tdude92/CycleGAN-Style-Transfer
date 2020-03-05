@@ -10,4 +10,4 @@ Epoch 195 (Real to Monet):
 \
 ![Domain B: Real](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/out/real2monet/Epoch195/B_real.jpg "Domain B: Real")
 ![Domain A: Fake](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/out/real2monet/Epoch195/A_fake.jpg "Domain A: Fake")
-![Domain B: Cyclic](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/real2monet/out/Epoch195/B_cyclic.jpg "Domain B: Cyclic")
+![Domain B: Cyclic](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/out/real2monet/Epoch195/B_cyclic.jpg "Domain B: Cyclic")
