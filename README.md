@@ -1,7 +1,7 @@
 # CycleGAN-Style-Transfer
 Implementing style transfer with CycleGAN.
 
-Epoch 195:
+Epoch 195 (Real to Monet):
 \
 ![Domain A: Real](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/out/Epoch_195/A_real.jpg "Domain A: Real")
 ![Domain B: Fake](https://github.com/tdude92/CycleGAN-Style-Transfer/blob/master/out/Epoch_195/B_fake.jpg "Domain B: Fake")
