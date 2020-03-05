@@ -70,7 +70,7 @@ class Generator(nn.Module):
             ResidualBlock(NGF * 4)
             # Dimensions: (64, 64, NGF * 4)
         )
-
+        
         self.decode = nn.Sequential(
             nn.ConvTranspose2d(NGF * 4, NGF * 2, kernel_size = 4, stride = 2, padding = 1, bias = False),
             nn.InstanceNorm2d(NGF * 2),
@@ -86,6 +86,25 @@ class Generator(nn.Module):
             nn.Tanh()
             # Dimensions: (256, 256, IMG_DEPTH)
         )
+        """
+        self.decode = nn.Sequential(
+            nn.Upsample(scale_factor = 2, mode = "nearest"),
+            nn.Conv2d(NGF * 4, NGF * 2, kernel_size = 3, stride = 1, padding = 1, bias = False),
+            nn.InstanceNorm2d(NGF * 2),
+            nn.ReLU(True),
+            # Dimensions: (128, 128, NGF * 2)
+
+            nn.Upsample(scale_factor = 2, mode = "nearest"),
+            nn.Conv2d(NGF * 2, NGF, kernel_size = 3, stride = 1, padding = 1, bias = False),
+            nn.InstanceNorm2d(NGF),
+            nn.ReLU(True),
+            # Dimensions: (256, 256, NGF)
+
+            nn.Conv2d(NGF, IMG_DEPTH, kernel_size = 3, stride = 1, padding = 1, bias = False),
+            nn.Tanh()
+            # Dimensions: (256, 256, IMG_DEPTH)
+        )
+        """
     
     def forward(self, x):
         x = self.encode(x)
